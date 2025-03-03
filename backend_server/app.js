@@ -30,15 +30,17 @@ var app = express();
 
 app.use(cors());
 
-if (process.env.NODE_ENV !== 'development') {
-    app.all('*', (req, res, next) => {
-        if (req.secure) {
-            return next();
+// Force HTTPS in production
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        if (req.header('x-forwarded-proto') !== 'https') {
+            res.redirect(`https://${req.header('host')}${req.url}`);
         } else {
-            res.redirect(307, 'https://' + req.hostname + req.url);
+            next();
         }
     });
 }
+
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
@@ -65,11 +67,10 @@ app.use(express.static(path.join(__dirname, '../frontend/build')));
 // Serve images from the frontend build/assets/images directory
 app.use('/images', express.static(path.join(__dirname, '../frontend/build', 'assets', 'images')));
 
-
-// // The "catchall" handler: for any request that doesn't match one above, send back React's index.html file.
-// app.get('*', (req, res) => {
-//     res.sendFile(path.resolve(__dirname, 'build', 'index.html'));
-// });
+// Serve React app for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
+});
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
@@ -78,13 +79,11 @@ app.use(function(req, res, next) {
 
 // error handler
 app.use(function(err, req, res, next) {
-    // set locals, only providing error in development
-    res.locals.message = err.message;
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-    // render the error page
     res.status(err.status || 500);
-    res.render('error');
+    res.json({
+        message: err.message,
+        error: req.app.get('env') === 'development' ? err : {}
+    });
 });
 
 const port = process.env.PORT || 3001;
