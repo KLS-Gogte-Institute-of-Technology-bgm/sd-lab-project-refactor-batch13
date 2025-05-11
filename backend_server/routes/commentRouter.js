@@ -22,27 +22,38 @@ commentRouter.route('/')
     }, (err) => next(err))
     .catch((err) => next(err));
 })
-.post(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
-    if (req.body != null) {
-        req.body.author = req.user._id;
-        Comments.create(req.body)
-        .then((comment) => {
-            Comments.findById(comment._id)
-            .populate('author')
-            .then((comment) => {
-                res.statusCode = 200;
-                res.setHeader('Content-Type', 'application/json');
-                res.json(comment);
-            })
-        }, (err) => next(err))
-        .catch((err) => next(err));
-    }
-    else {
-        err = new Error('Comment not found in request body');
-        err.status = 404;
-        return next(err);
-    }
+.post(cors.corsWithOptions, authenticate.verifyUser, async (req, res, next) => {
+    try {
+        // Check if the request body is not null
+        if (req.body === null) {
+            const error = new Error('Comment not found in request body');
+            error.status = 404;
+            return next(error);
+        }
 
+        // Attach the user ID to the comment
+        req.body.author = req.user._id;
+
+        // Create the comment
+        const comment = await Comments.create(req.body);
+
+        // Find the comment by ID and populate the author field
+        const populatedComment = await Comments.findById(comment._id).populate('author');
+
+        // Send response
+        res.status(200).json(populatedComment);
+
+    } catch (err) {
+        // Check for validation errors specifically
+        if (err.name === 'ValidationError') {
+            res.status(400).json({
+                message: err.message,
+                errors: err.errors,
+            });
+        } else {
+            next(err);
+        }
+    }
 })
 .put(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
     res.statusCode = 403;

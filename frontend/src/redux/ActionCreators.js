@@ -6,7 +6,7 @@ export const addComment = (comment) => ({
     payload: comment
 });
 
-export const postComment = (dishId, rating, comment) => (dispatch) => {
+export const postComment = (dishId, rating, comment) => async (dispatch) => {
 
     const newComment = {
         dish: dishId,
@@ -17,33 +17,26 @@ export const postComment = (dishId, rating, comment) => (dispatch) => {
 
     const bearer = 'Bearer ' + localStorage.getItem('token');
 
-    return fetch(baseUrl + 'comments', {
-        method: 'POST',
-        body: JSON.stringify(newComment),
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': bearer
-        },
-        credentials: 'same-origin'
-    })
-    .then(response => {
-        if (response.ok) {
-            return response;
+    try {
+        const response = await fetch(baseUrl + 'comments', {
+            method: 'POST',
+            body: JSON.stringify(newComment),
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': bearer
+            },
+            credentials: 'same-origin'
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to post the comment');
         }
-        else {
-            var error = new Error('Error ' + response.status + ': ' + response.statusText);
-            error.response = response;
-            throw error;
-        }
-    },
-    error => {
-        var errmess = new Error(error.message);
-        throw errmess;
-    })
-    .then(response => response.json())
-    .then(response => dispatch(addComment(response)))
-    .catch(error => { console.log('Post comments ', error.message);
-        alert('Your comment could not be posted\nError: '+ error.message); })
+        const response_1 = await response.json();
+        const data = dispatch(addComment(response_1));
+        alert('Comment posted successfully!');
+    } catch (error) {
+        alert(`Your comment could not be posted\nError: ${error.message}`);
+    }
 }
 
 export const fetchDishes = () => (dispatch) => {
